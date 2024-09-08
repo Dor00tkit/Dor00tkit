@@ -45,6 +45,8 @@ Before diving into reverse engineering the binary, our initial step involves exa
 We can load the binary into [Detect It Easy](https://github.com/horsicq/Detect-It-Easy) (DiE):  
 
 ![](../../assets/images/intel_vtx_ctf/golf/golf_die_main.png)
+_:
+![](/assets/images/intel_vtx_ctf/golf/golf_die_main.png)
 
 The file was compiled with MSVC and is not packed:  
 
