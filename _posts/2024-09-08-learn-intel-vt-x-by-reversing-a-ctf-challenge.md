@@ -33,7 +33,7 @@ The description of the challenge is:
 
 Okay, let's start.  
 Let's run `golf.exe` to observe its behavior.  
-However, an error occurs:  
+The program outputs the following message, leaving us with little information on what went wrong:  
 
 ![](/assets/images/intel_vtx_ctf/golf/golf_first_run.png)
 
