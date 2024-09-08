@@ -35,7 +35,7 @@ Okay, let's start.
 Let's run `golf.exe` to observe its behavior.  
 However, an error occurs:  
 
-![](../assets/images/intel_vtx_ctf/golf/golf_first_run.png)
+![](/assets/images/intel_vtx_ctf/golf/golf_first_run.png)
 
 ### **golf - initial analysis**
 Before diving into reverse engineering the binary, our initial step involves examining key technical aspects. This includes identifying the compiler used, assessing whether the file is packed, reviewing its imports, uncovering notable strings, and identifying embedded resources.  
@@ -48,7 +48,7 @@ We can load the binary into [Detect It Easy](https://github.com/horsicq/Detect-I
 
 The file was compiled with MSVC and is not packed:  
 
-![](../assets/images/intel_vtx_ctf/golf/golf_die_entropy.png)
+![](/assets/images/intel_vtx_ctf/golf/golf_die_entropy.png)
 
 Next, let's examine the imports. Here are some that stand out:  
 * [RegCloseKey](https://learn.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regclosekey), [RegCreateKeyExA](https://learn.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regcreatekeyexa), [RegDeleteKeyA](https://learn.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regdeletekeya), [RegDeleteValueA](https://learn.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regdeletevaluea),
@@ -134,7 +134,7 @@ We can confirm this again by searching online—this time for the constant `0x2B
 First, `argv[1]` must be exactly `0x18` bytes long.  
 Next, there is a call to `sub_100001A60`, which performs the following tasks:  
 1. Calls `sub_100001A73` to execute `CPUID` with `EAX` set to `0x40000001` and perform a calculation based on the result of the `EAX` register. What information does `0x40000001` provide? Searching for `0x40000001` in the [Intel SDM](https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html) yields no results. Although the `CPUID` documentation provides some context, it doesn’t directly answer the question:  
-![](../assets/images/intel_vtx_ctf/golf/cpuid_40000000_sdm.png)  
+![](/assets/images/intel_vtx_ctf/golf/cpuid_40000000_sdm.png)  
 Again, searching for `CPUID 0x40000001` online can provide us with the [answer](https://learn.microsoft.com/en-us/virtualization/hyper-v-on-windows/tlfs/feature-discovery).  
 The calculation routine (`sub_1000014C0`) takes a DWORD array (`dword_10004B140`) as an argument. This array contains constant values, which, after a quick search, are found to be used for a CRC32 checksum. The CRC32 result is then compared with the hardcoded value `0x5C139D95`. If they do not match, the program proceeds as usual. The purpose of this check is currently unknown. While there could be several reasons for it, the important thing is that it does not impede our progress, so we can disregard it for now. Additionally, since the input is based on `EAX` (`4`-byte value), we can attempt all possible inputs (`0x00000000` - `0xFFFFFFFF`) to find the "correct" input that matches the check.  
 
@@ -143,7 +143,7 @@ The calculation routine (`sub_1000014C0`) takes a DWORD array (`dword_10004B140`
 2. Calls `sub_1000021C0` to dump the embedded driver file to `C:\fhv.sys`.  
 NOTE: If you attempt to use the decompiler or view the `sub_1000021C0` function in graph mode, you will encounter an error stating "too big function" or "Sorry, this node is too big to display".
 This happens because the `fhv.sys` file is stored as an array on the stack, which **significantly** increases the size of the function. A workaround for the decompilation can be found [here](https://hex-rays.com/blog/igors-tip-of-the-week-166-dealing-with-too-big-function/). For the graph view, click the button shown in the following figure:  
-![](../assets/images/intel_vtx_ctf/golf/sub_1000021C0_too_big.png)  
+![](/assets/images/intel_vtx_ctf/golf/sub_1000021C0_too_big.png)  
 To extract the `fhv.sys` binary, we can let the program do the job for us and dump it to the disk.  
 
 1. Calls `sub_100001700` to resolve the [ZwLoadDriver](http://undocumented.ntinternals.net/index.html?page=UserMode%2FUndocumented%20Functions%2FExecutable%20Images%2FNtLoadDriver.html) function using [GetProcAddress](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getprocaddress), adjust the current process [privileges](https://learn.microsoft.com/en-us/windows/win32/secauthz/privilege-constants) to include `SeLoadDriverPrivilege`, register the new driver in the registry, and finally call `ZwLoadDriver` to load the driver.
@@ -203,7 +203,7 @@ Since the `lpAddress` buffer is allocated with `read`, `write`, and `execute` pe
 The first instruction is a special one called `VMCALL`. What does the `VMCALL` instruction do? Let’s refer to the Intel SDM again.  
 
 ##### **VMCALL**
-![](../assets/images/intel_vtx_ctf/golf/vmcall_sdm.png)
+![](/assets/images/intel_vtx_ctf/golf/vmcall_sdm.png)
 
 But what does "Call to VM monitor by causing VM exit" mean? Now, it's time to dive into hypervisors.  
 
@@ -229,7 +229,7 @@ There are [two](https://web.archive.org/web/20230324153721/https://vapour-apps.c
 * Examples: VMware Workstation, Oracle VM VirtualBox, Parallels Desktop.
 * Characteristics: Easier to set up, suitable for personal use, development, and testing, though slightly less efficient due to the overhead of the host OS.
 
-![](../assets/images/intel_vtx_ctf/fhv/hypervisor_1_vs_2.png)
+![](/assets/images/intel_vtx_ctf/fhv/hypervisor_1_vs_2.png)
 
 As you’ve probably noticed, our challenge runs on top of the operating system, making it a `type 2 hypervisor`.  
 
@@ -254,7 +254,7 @@ Let's examine the most <u> relevant </u> VMX instructions for this post:
 | VMRESUME       | Resume Virtual Machine                             | VMX non-root mode |
 | VMCALL         | Call to VM Monitor                                 | VMX root mode     |
 
-![A VMM Life Cycle](../assets/images/intel_vtx_ctf/fhv/vmm-life-cycle.png)
+![A VMM Life Cycle](/assets/images/intel_vtx_ctf/fhv/vmm-life-cycle.png)
 
 ####  **VMCS - Virtual Machine Control Structure**
 The VMCS is a crucial data structure in Intel VT-x that controls the behavior of virtual machines. It stores state information for the **guest** and the **hypervisor**, managing transitions between them.  
@@ -268,13 +268,13 @@ The VMCS includes fields for:
 
 There is a picture that illustrates and catalogs VMCS fields in a cool way:  
 
-![](../assets/images/intel_vtx_ctf/fhv/VMCS-page-layout-1.jpeg)
-![](../assets/images/intel_vtx_ctf/fhv/VMCS-page-layout-2.jpg)
+![](/assets/images/intel_vtx_ctf/fhv/VMCS-page-layout-1.jpeg)
+![](/assets/images/intel_vtx_ctf/fhv/VMCS-page-layout-2.jpg)
 
 #### **Extended Page Tables (EPT) and Virtual Processor ID (VPID)**
 **Extended Page Tables** (EPT) is a hardware-assisted memory virtualization feature that offers a [Second Level of Address Translation](https://en.wikipedia.org/wiki/Second_Level_Address_Translation) (SLAT). It maps guest physical addresses to host physical addresses, enabling the hypervisor to manage memory more efficiently and securely. EPT reduces the overhead associated with traditional software-based memory management techniques.  
 
-![](../assets/images/intel_vtx_ctf/fhv/slat.png)
+![](/assets/images/intel_vtx_ctf/fhv/slat.png)
 
 **Virtual Processor ID** (VPID) is a feature that assigns unique identifiers to each virtual processor, enabling the processor to maintain separate caches for each VM. This minimizes the overhead of cache flushing during VM switches and enhances performance.  
 
@@ -443,17 +443,17 @@ NTSTATUS sub_14000B73C() {
 From this point forward, the Intel SDM - `Volume 3 (3A, 3B, 3C & 3D): System Programming Guide` will be our primary reference.  
 **At [1]**, the code executes `CPUID` with `EAX` set to `1`, and then **at [2]**, it checks whether `RCX` is negative. This check essentially means, 'Is the [MSB](https://en.wikipedia.org/wiki/Bit_numbering) set?' The `CPUID - Initial EAX Value = 1` documentation in the SDM provides some information, though it doesn't necessarily bring us closer to the answer:  
 
-![](../assets/images/intel_vtx_ctf/fhv/cpuid_1_sdm.png)
+![](/assets/images/intel_vtx_ctf/fhv/cpuid_1_sdm.png)
 
 Again, searching for `CPUID 1` online can provide us with the [answer](https://en.wikipedia.org/wiki/CPUID#EAX=1:_Processor_Info_and_Feature_Bits):  
 
-![](../assets/images/intel_vtx_ctf/fhv/cpuid_1_wiki.png)
+![](/assets/images/intel_vtx_ctf/fhv/cpuid_1_wiki.png)
 
 If the hypervisor present bit is set, the code **at [3] and [4]** will be executed. **At [3]**, `CPUID` is executed again with `EAX` set to `0x40000001`, which we’ve already seen in [golf!sub_100001A73](#main). **At [4]**, it checks if `EAX` equals `0x56484C46` (`VHLF`), and if true, the function will abort with `STATUS_CANCELLED`. We can infer that the test in `golf!sub_100001A73` likely uses the `CPUID` input value of `0x56484C46`, causing the condition to be true. This test seems to confirm whether the driver has already been executed and initialized. If the driver is loaded again, this code will prevent it from running again the initialization code.  
 
 Next, **at [5]**, the `CPUID` instruction is executed again with `EAX` set to `1`. Then, **at [6]**, it checks whether the **5th** bit of `RCX` is unset. Let's refer to the SDM for more details:  
 
-![](../assets/images/intel_vtx_ctf/fhv/cpuid_1_sdm_ecx_5th_bit.png)
+![](/assets/images/intel_vtx_ctf/fhv/cpuid_1_sdm_ecx_5th_bit.png)
 
 Additionally, the `Introduction to Virtual Machine Extensions` chapter includes a section called `Discovering Support for VMX` that describes this process in detail:  
 > **DISCOVERING SUPPORT FOR VMX**  
@@ -480,22 +480,22 @@ Next, **at [7] and [8]** there is a call to `sub_140002F80`, let's take a look a
 
 > A model-specific register (MSR) is a type of control register in the x86 system architecture. MSRs are used for tasks such as debugging, program execution tracing, computer performance monitoring, and controlling specific CPU features.  
 
-![](../assets/images/intel_vtx_ctf/fhv/rdmsr_sdm.png)  
+![](/assets/images/intel_vtx_ctf/fhv/rdmsr_sdm.png)  
 
 The function `sub_140002F80` reads the contents of the MSR specified by the `ECX` register and returns the result in `RAX`. To make the code easier to follow, we can rename `sub_140002F80` to `readmsr`. Now that it’s clear `sub_140002F80` (`readmsr`) takes an MSR as a parameter, we can simplify future work by importing a header file containing an enum of MSR values (you can use [this one](https://github.com/nullpo-head/x86-MSR-header/blob/master/msr.h)). Additionally, we can [update the type declaration](https://hex-rays.com//products/ida/support/idadoc/1361.shtml) of `sub_140002F80` (`readmsr`) to improve the clarity of the decompiled code.  
 
 Now we can revisit the code **at [7] and [8]**.  
 **At [7]**, the value `0x480` is passed as an argument to `sub_140002F80` (`readmsr`). What does `0x480` represent? The SDM provides the answer:  
 
-![](../assets/images/intel_vtx_ctf/fhv/msr_0x480_1.png)  
-![](../assets/images/intel_vtx_ctf/fhv/msr_0x480_2.png)  
+![](/assets/images/intel_vtx_ctf/fhv/msr_0x480_1.png)  
+![](/assets/images/intel_vtx_ctf/fhv/msr_0x480_2.png)  
 
 **At [7]** the code verifies if the `memory type` of the `IA32_VMX_BASIC` MSR is set to `Write Back (WB)`. We won’t go into the details of memory type here. For those interested in learning more, [Daax]((https://x.com/daaximus))'s excellent blog post offers a [detailed explanation](https://revers.engineering/mmu-virtualization-impl-p1/).  
 
 **At [8]**, the value `0x3A` is passed as an argument to `sub_140002F80` (`readmsr`):  
 
-![](../assets/images/intel_vtx_ctf/fhv/msr_0x3A_1.png)  
-![](../assets/images/intel_vtx_ctf/fhv/msr_0x3A_2.png)
+![](/assets/images/intel_vtx_ctf/fhv/msr_0x3A_1.png)  
+![](/assets/images/intel_vtx_ctf/fhv/msr_0x3A_2.png)
 
 **At [9] and [10]** the code checks if bits `0` and `2` of `IA32_FEATURE_CONTROL` MSR are cleared. The chapter `Introduction to Virtual Machine Extensions` describes this process in detail, specifically in the section titled `Enabling and Entering VMX Operation`:  
 > **ENABLING AND ENTERING VMX OPERATION**  
@@ -707,7 +707,7 @@ NTSTATUS __stdcall sub_14000BDE0() {
 .text:0000000140002FE1                         sub_140002FD8   endp
 ```
 
-![](../assets/images/intel_vtx_ctf/fhv/wrmsr_sdm.png)
+![](/assets/images/intel_vtx_ctf/fhv/wrmsr_sdm.png)
 
 Similar to the `RDMSR` instruction for reading from an MSR, there is also a `WRMSR` instruction for writing to an MSR. We can rename `sub_140002FD8` to `writemsr`. In summary, the function `sub_14000BDE0` ensures that the `lock bit` of the `IA32_FEATURE_CONTROL` MSR is set; if it isn't, the function attempts to set it. As mentioned in the section on `Enabling and Entering VMX Operation`, this is a necessary step before executing a `VMXON` instruction:  
 > To enable VMX support in a platform, **BIOS must set bit 1, bit 2, or both** (see below), as **well as the lock bit**.  
@@ -902,8 +902,8 @@ void __fastcall sub_14000BBCC(_QWORD *saved_state, char *unk_140001377, flhv_bit
 ```
 **At [1], [2], [5] and [6]**, the MSRs `IA32_VMX_CR0_FIXED0` (`0x486`), `IA32_VMX_CR0_FIXED1` (`0x487`), `IA32_VMX_CR4_FIXED0` (`0x488`) and `IA32_VMX_CR4_FIXED1` (`0x489`) are read.  
 
-![](../assets/images/intel_vtx_ctf/fhv/msr_0x486_and_0x487.png)
-![](../assets/images/intel_vtx_ctf/fhv/msr_0x488_and_0x489.png)
+![](/assets/images/intel_vtx_ctf/fhv/msr_0x486_and_0x487.png)
+![](/assets/images/intel_vtx_ctf/fhv/msr_0x488_and_0x489.png)
 
 What are these values, and why are they necessary?  
 First, as noted in the section on `Enabling and Entering VMX Operation`, there is a reference to `CR4`:  
@@ -920,12 +920,12 @@ The **first processors** to support VMX operation require that the following bit
 
 `IA32_VMX_CR0_FIXED0`, `IA32_VMX_CR0_FIXED1`, `IA32_VMX_CR4_FIXED0` and `IA32_VMX_CR4_FIXED1`:  
 
-![](../assets/images/intel_vtx_ctf/fhv/vmx_msr_0x486_0x489.png)
+![](/assets/images/intel_vtx_ctf/fhv/vmx_msr_0x486_0x489.png)
 
 **At [3], [7], [4], and [8]**, the current values of `CR0` and `CR4` are read and then modified according to the fixed values from the MSRs. We're just about to enter and start running in VMX mode!  
 **At [9]**, the `IA32_VMX_BASIC` MSR is read, with the lower `31 bits` extracted and stored at offset `0` in `buf_0x1000_1`:  
 
-![](../assets/images/intel_vtx_ctf/fhv/basic_vmx_info_rev_id.png)
+![](/assets/images/intel_vtx_ctf/fhv/basic_vmx_info_rev_id.png)
 
 Why is this step (`[9]`) necessary? The chapter `Virtual Machine Control Structures`, covers this in the section titled `Software Use of VMCS and Related Structures`, specifically in the sub-section `VMXON Region`.  
 
@@ -944,15 +944,15 @@ Next, **at [10]**, the physical address of `buf_0x1000_1` is obtained, and **at 
 
 ##### **VMXON**
 
-![](../assets/images/intel_vtx_ctf/fhv/sdm_vmxon.png)
+![](/assets/images/intel_vtx_ctf/fhv/sdm_vmxon.png)
 
 > Do you recall the question: "Why is it necessary to run a specific function on all processors rather than just one?" Here is the answer: Since the `VMXON` instruction **only causes the current logical processor to enter into VMX root operation**, we need to apply it to the remaining logical processors.  
 See also: [Two CPU in two modes - VMX and non-VMX modes](https://stackoverflow.com/questions/39972583/two-cpu-in-two-modes-vmx-and-non-vmx-modes)  
 
 We can rename `buf_0x1000_1` to `vmxon_region`. Lastly, **at [12]**, the success of the `VMXON` instruction is verified by ensuring that both the **ZF and CF flags are clear**:  
 
-![](../assets/images/intel_vtx_ctf/fhv/vmx_inst_flags_affected.png)
-![](../assets/images/intel_vtx_ctf/fhv/vmx_eflags.png)
+![](/assets/images/intel_vtx_ctf/fhv/vmx_inst_flags_affected.png)
+![](/assets/images/intel_vtx_ctf/fhv/vmx_eflags.png)
 
 Moving forward, let’s examine the next portion of the code:  
 ```c
@@ -981,14 +981,14 @@ void __fastcall sub_14000BBCC(_QWORD *saved_state, char *unk_140001377, flhv_bit
 
 ##### **VMCLEAR**  
 
-![](../assets/images/intel_vtx_ctf/fhv/sdm_vmclear.png)
+![](/assets/images/intel_vtx_ctf/fhv/sdm_vmclear.png)
 
 `VMCLEAR` is typically executed before using a VMCS for a new virtual machine or when switching between VMCSs. **At [6]** the success of the `VMCLEAR` instruction is verified. We can rename `buf_0x1000_2` to `vmcs_region`.  
 Next, **at [7]** the `VMPTRLD` instruction is executed.  
 
 ##### **VMPTRLD**
 
-![](../assets/images/intel_vtx_ctf/fhv/sdm_vmptrld.png)
+![](/assets/images/intel_vtx_ctf/fhv/sdm_vmptrld.png)
 
 `VMPTRLD`'s key purpose is to set the `current VMCS`. This is crucial because **most VMX instructions operate on the current VMCS**. By executing `VMPTRLD`, you're essentially telling the processor which VMCS to use for subsequent VMX operations. **At [8]** the success of the `VMPTRLD` instruction is verified. In the next section, we'll explore how the VMCS is initialized.  
 
@@ -1013,7 +1013,7 @@ char __fastcall sub_140002FCC(__int64 _RCX, __int64 _RDX) {
 
 ##### **VMWRITE**
 
-![](../assets/images/intel_vtx_ctf/fhv/sdm_vmwrite.png)
+![](/assets/images/intel_vtx_ctf/fhv/sdm_vmwrite.png)
 
 To initialize the VMCS fields, Intel provides the `VMWRITE` instruction rather than directly writing to memory. This approach simplifies managing the VMCS fields and ensures that the values are correctly written to the appropriate locations in the VMCS structure. The VMCS fields are encoded to uniquely identify different elements within the VMCS. Each field is assigned a specific encoding value, which the `VMWRITE` and `VMREAD` instructions use to write or read the corresponding fields.  
 We can rename `sub_140002FCC` to `vmwrite_rcx_rdx` for better clarity. Since it's clear that this function takes an encoded VMCS field as a parameter, we can simplify future work by importing a header file with an enum of VMCS field values (you can use [this one](https://github.com/DeDf/HyperVisor/blob/master/vmcs.h)). Updating the type declaration for `sub_140002FCC` (`vmwrite_rcx_rdx`) will result in clearer decompiled code. 
@@ -1280,26 +1280,26 @@ char __fastcall sub_14000BE30(flhv_ctx *fhv_ctx, __int64 saved_state, __int64 in
 
 Fixed bits `0x204` (step **[3]**) for `VM_ENTRY_CONTROLS`:  
 
-![](../assets/images/intel_vtx_ctf/fhv/sdm_fixed_vm_entry_ctls.png)
+![](/assets/images/intel_vtx_ctf/fhv/sdm_fixed_vm_entry_ctls.png)
 
 **VM-entry controls** are a 32-bit vector that define the configuration when transitioning **from** VMX root mode **to** non-root mode. These settings determine how registers, system states, and MSRs are loaded for the guest environment. Examples include loading debug controls (bit `2`), entering IA-32e mode (bit `9`), and loading MSRs like `IA32_EFER` (bit `15`) and `IA32_PAT` (bit `14`).
 
 The fixed bits `0x8200` (step **[5]**) apply to the `VM_EXIT_CONTROLS`:  
 
-![](../assets/images/intel_vtx_ctf/fhv/sdm_fixed_vm_exit_ctls.png)
+![](/assets/images/intel_vtx_ctf/fhv/sdm_fixed_vm_exit_ctls.png)
 
 **VM-Exit Controls** are responsible for managing the conditions and actions when transitioning **from** VMX non-root mode **to** VMX root mode. These controls determine how the processor state is saved and restored, as well as how certain processor behaviors are managed during VM exits, ensuring a seamless transition back to the hypervisor.  
 
 The fixed bits `0x92808000` (step **[8]**) apply to the `CPU_BASED_VM_EXEC_CONTROL`:  
 
-![](../assets/images/intel_vtx_ctf/fhv/sdm_fixed_vm_procbased_ctls1.png)
-![](../assets/images/intel_vtx_ctf/fhv/sdm_fixed_vm_procbased_ctls2.png)
+![](/assets/images/intel_vtx_ctf/fhv/sdm_fixed_vm_procbased_ctls1.png)
+![](/assets/images/intel_vtx_ctf/fhv/sdm_fixed_vm_procbased_ctls2.png)
 
 **Primary Processor-Based VM-Execution Controls** manage the execution behavior of the virtual machine in VMX non-root mode. These controls define which instructions and events cause VM exits and govern features such as interrupt and exception handling, timestamp counter use, and whether specific CPU instructions like `HLT`, `INVLPG`, `MWAIT`, and `RDPMC` trigger VM exits.  
 
 The fixed bits `0x10102E` apply to the `SECONDARY_VM_EXEC_CONTROL`:  
 
-![](../assets/images/intel_vtx_ctf/fhv/sdm_fixed_vm_secondary_vm_exec_ctls.png)  
+![](/assets/images/intel_vtx_ctf/fhv/sdm_fixed_vm_secondary_vm_exec_ctls.png)  
 
 **Secondary Processor-Based VM-Execution Controls** are an additional set of execution controls that provide finer granularity and more features for managing VM behavior. These controls extend the capabilities of Primary Processor-Based VM-Execution Controls by offering additional options such as enabling EPT, unrestricted guest mode, and other advanced features that enhance virtual machine performance and flexibility.  
 
@@ -1338,7 +1338,7 @@ We can rename `sub_140002FC0` to `vmread_rax_rax` for clarity. Next, **at [2]** 
 
 ##### **VMLAUNCH**
 
-![](../assets/images/intel_vtx_ctf/fhv/sdm_vmlaunch.png)
+![](/assets/images/intel_vtx_ctf/fhv/sdm_vmlaunch.png)
 
 The `VMLAUNCH` instruction transitions a logical processor **from** VMX root mode **to** VMX non-root mode, effectively starting the execution of a virtual machine (VM). **At [3]**, the success of the `VMLAUNCH` is verified.  
 
@@ -1584,9 +1584,9 @@ __int64 __fastcall sub_140004528(guest_saved_state *guest_state) {
 
 The first `16` bits of `VM_EXIT_REASON` are extracted into `EDX`, followed by a comparison with `0x1E`. Let's examine the SDM again:  
 
-![](../assets/images/intel_vtx_ctf/fhv/sdm_basic_vm_exit_reasons_1.png)
-![](../assets/images/intel_vtx_ctf/fhv/sdm_basic_vm_exit_reasons_2.png)
-![](../assets/images/intel_vtx_ctf/fhv/sdm_basic_vm_exit_reasons_3.png)
+![](/assets/images/intel_vtx_ctf/fhv/sdm_basic_vm_exit_reasons_1.png)
+![](/assets/images/intel_vtx_ctf/fhv/sdm_basic_vm_exit_reasons_2.png)
+![](/assets/images/intel_vtx_ctf/fhv/sdm_basic_vm_exit_reasons_3.png)
 
 To enhance the clarity of the decompiled code, we can create or import an enum for `Basic exit reason` and set the `result` type accordingly. This will make it easier to identify the check for `VMCALL`:  
 ```c
@@ -1874,7 +1874,7 @@ v13 = (sub_1400026B0)(fhv_ctx->ept, PhysicalAddress.QuadPart); // [10]
 
 The function performs a `bitwise AND` operation with `0xFFFFFFFFFFFFFFFD` on the content of the (EPT) PTE returned by `sub_1400026B0`:  
 
-![](../assets/images/intel_vtx_ctf/fhv/sdm_ept_pte_4kb.png)
+![](/assets/images/intel_vtx_ctf/fhv/sdm_ept_pte_4kb.png)
 
 To sum up, `sub_140004A3C` iterates over the pages of the `.text` section to ensure they are non-writable.  
 
@@ -2062,7 +2062,7 @@ with open("vmcall_0x13687060_user_buffer_bytes.bin", "wb") as binary_file:
 
 After decoding, the resulting bytes do not seem to represent valid x86 instruction code:  
 
-![](../assets/images/intel_vtx_ctf/fhv/vmcall_0x13687060_user_buffer_bytes.png)
+![](/assets/images/intel_vtx_ctf/fhv/vmcall_0x13687060_user_buffer_bytes.png)
 
 Next, let's analyze the second `VMCALL`.
 
@@ -2155,7 +2155,7 @@ NTSTATUS __fastcall sub_140004988(void *va, ULONG len) {
 
 The code **at [2] and [3]** might look familiar, as we've encountered this snippet before. Here, `sub_1400026B0` returns the virtual address (EPT) PTE for the requested physical address. Next, **at [4]**, a `bitwise AND` operation with `0xFFFFFFFFFFFFFFF8` is applied to the content of the (EPT) PTE. The value `8` in binary is represented as `1000b`. Therefore, these bits are used to clear the first three bits in the PTE:  
 
-![](../assets/images/intel_vtx_ctf/fhv/sdm_ept_pte_4kb_2.png)
+![](/assets/images/intel_vtx_ctf/fhv/sdm_ept_pte_4kb_2.png)
 
 This action disables `read`, `write`, and `execute` permissions from the user buffer. But why would such a drastic step be taken? We’ll explore the reasons soon.  
 
@@ -2169,7 +2169,7 @@ An attempt to execute the user buffer! But we mentioned that `read`, `write`, an
 
 What is going to happen when we try to execute code from the user buffer? Remember the [EPT](#ept---extended-page-tables-and-vpid---virtual-processor-id)? Since the hypervisor uses EPT, a [VM exit](#vm-exit) will occur due to an EPT violation. This behavior is somewhat akin to a [page fault](https://en.wikipedia.org/wiki/Page_fault), but in this case, it's handled by the hypervisor rather than the operating system.
 
-![](../assets/images/intel_vtx_ctf/fhv/sdm_vm_exit_ept_vio.png)
+![](/assets/images/intel_vtx_ctf/fhv/sdm_vm_exit_ept_vio.png)
 
 Back to the [VM-Exit handler](#sub_1400013e6---vm-exit-handler) helper function; `sub_140004528`:
 ```c
@@ -2255,8 +2255,8 @@ __int64 __fastcall sub_1400026C4(__int64 ept) {
 
 > `basic exit reason` tells "why" the vm exit happened, while `exit qualification` provides the "details" of that specific exit.  
 
-![](../assets/images/intel_vtx_ctf/fhv/sdm_exit_qualification_ept_vio_1.png)
-![](../assets/images/intel_vtx_ctf/fhv/sdm_exit_qualification_ept_vio_2.png)
+![](/assets/images/intel_vtx_ctf/fhv/sdm_exit_qualification_ept_vio_1.png)
+![](/assets/images/intel_vtx_ctf/fhv/sdm_exit_qualification_ept_vio_2.png)
 
 Next, the code **at [3], [4], and [5]** attempts to determine the specific reason for the EPT violation. If the ept violation is due to an instruction fetch, the function returns `1`. 
 
